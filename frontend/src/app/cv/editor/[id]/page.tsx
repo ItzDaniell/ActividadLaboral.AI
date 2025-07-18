@@ -6,6 +6,7 @@ import Button from "@/components/Button";
 import { Download, Languages, LayoutPanelLeft } from "lucide-react";
 import Modal from "@/components/Modal";
 import { useParams } from "next/navigation";
+import { generatePDF, createHarvardTemplate, createSidebarTemplate } from '@/utils/pdfGenerator';
 
 export default function CvEditor() {
   const params = useParams();
@@ -41,15 +42,29 @@ export default function CvEditor() {
     setForm({ ...form, [e.target.name]: e.target.value });
   };
 
-  // Función para descargar el CV como archivo de texto (puedes cambiar a PDF luego)
-  const downloadCV = (content: string, filename: string) => {
-    const blob = new Blob([content], { type: 'text/plain' });
-    const link = document.createElement('a');
-    link.href = URL.createObjectURL(blob);
-    link.download = filename;
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
+  // Función para descargar el CV capturando el HTML real de la interfaz
+  const downloadCVAsPDF = async (form: FormFields, language: 'es' | 'en') => {
+    // Crear un elemento temporal con el HTML real de tu interfaz
+    const tempDiv = document.createElement('div');
+    tempDiv.style.position = 'absolute';
+    tempDiv.style.left = '-9999px';
+    tempDiv.style.width = '800px';
+    tempDiv.style.backgroundColor = '#f3f4f6'; // bg-gray-100
+    tempDiv.style.padding = '20px';
+    
+    // Clonar el HTML real del CV que se está mostrando
+    const cvElement = document.querySelector('main');
+    if (cvElement) {
+      tempDiv.innerHTML = cvElement.outerHTML;
+    }
+    
+    document.body.appendChild(tempDiv);
+    
+    try {
+      await generatePDF(tempDiv.outerHTML, `cv_${language}.pdf`);
+    } finally {
+      document.body.removeChild(tempDiv);
+    }
   };
 
   // Definir el tipo de los campos del formulario
@@ -90,6 +105,84 @@ Habilidades: ${form.habilidades || ""}`;
     });
     const data = await response.json();
     return data.translation;
+  };
+
+  // Función para crear el HTML del CV basado en el diseño actual
+  const createCVHTML = (form: FormFields) => {
+    if (activeLayout === "harvard") {
+      return `
+        <div style="font-family: Arial, sans-serif; max-width: 700px; margin: 0 auto; background-color: white; padding: 40px; border-radius: 8px; box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);">
+          <h1 style="text-align: center; font-size: 24px; margin-bottom: 5px; font-weight: bold; color: #333;">
+            ${form.nombres || "Nombres"} ${form.apellidos || "Apellidos"}
+          </h1>
+          <h2 style="text-align: center; font-size: 14px; color: #666; margin-bottom: 24px; font-weight: 600;">
+            ${form.profesion || "PROFESIÓN"}
+          </h2>
+          
+          <div style="display: flex; justify-content: space-between; margin-bottom: 24px;">
+            <div>
+              <p style="font-size: 12px; color: #666; margin: 2px 0; text-decoration: underline;">${form.correo || "correo@personal.com"}</p>
+              <p style="font-size: 12px; color: #666; margin: 2px 0;">${form.linkedin || "linkedin.com"}</p>
+            </div>
+            <div style="text-align: right;">
+              <p style="font-size: 12px; color: #666; margin: 2px 0; text-decoration: underline;">${form.web || "miweb.com"}</p>
+              <p style="font-size: 12px; color: #666; margin: 2px 0;">${form.celular || "+51 999 999 999"}</p>
+              <p style="font-size: 12px; color: #666; margin: 2px 0;">${form.lugar || "Lima, Perú"}</p>
+            </div>
+          </div>
+          
+          <section style="margin-bottom: 16px;">
+            <h3 style="font-weight: bold; border-bottom: 1px solid #000; padding-bottom: 8px; color: #333;">PERFIL</h3>
+            <p style="margin-top: 8px; color: #333; padding-left: 16px; font-size: 12px; line-height: 1.4;">${form.perfil || "Perfil..."}</p>
+          </section>
+          
+          <section style="margin-bottom: 16px;">
+            <h3 style="font-weight: bold; border-bottom: 1px solid #000; padding-bottom: 8px; color: #333;">EDUCACIÓN</h3>
+            <p style="margin-top: 8px; color: #333; padding-left: 16px; font-size: 12px; line-height: 1.4;">${form.educacion || "Educación..."}</p>
+          </section>
+          
+          <section>
+            <h3 style="font-weight: bold; border-bottom: 1px solid #000; padding-bottom: 8px; color: #333;">HABILIDADES</h3>
+            <p style="margin-top: 8px; color: #333; padding-left: 16px; font-size: 12px; line-height: 1.4;">${form.habilidades || "Habilidades..."}</p>
+          </section>
+        </div>
+      `;
+    } else {
+      return `
+        <div style="font-family: Arial, sans-serif; max-width: 700px; margin: 0 auto; background-color: white; border-radius: 8px; overflow: hidden; box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1); display: flex;">
+          <div style="width: 30%; background-color: #353b47; color: white; padding: 32px 24px;">
+            <div style="margin-bottom: 20px; border-bottom: 1px solid rgba(255,255,255,0.3); padding-bottom: 15px;">
+              <h3 style="font-weight: bold; font-size: 14px; margin-bottom: 8px; letter-spacing: 1px;">CONTACTO</h3>
+              <ul style="font-size: 12px; list-style: none; padding: 0; margin: 0;">
+                <li style="margin-bottom: 4px;">- ${form.lugar || "Lima, Perú"}</li>
+                <li style="margin-bottom: 4px;">- ${form.celular || "999999999"}</li>
+                <li style="margin-bottom: 4px;">- ${form.correo || "pedro@ejemplo.com"}</li>
+                <li style="margin-bottom: 4px;">- ${form.linkedin || "linkedin.com"}</li>
+                <li style="margin-bottom: 4px;">- ${form.web || "miweb.com"}</li>
+              </ul>
+            </div>
+            
+            <div style="margin-bottom: 20px; border-bottom: 1px solid rgba(255,255,255,0.3); padding-bottom: 15px;">
+              <h3 style="font-weight: bold; font-size: 14px; margin-bottom: 8px; letter-spacing: 1px;">EDUCACIÓN</h3>
+              <p style="font-size: 12px; margin: 0;">${form.educacion || ""}</p>
+            </div>
+            
+            <div>
+              <h3 style="font-weight: bold; font-size: 14px; margin-bottom: 8px; letter-spacing: 1px;">HABILIDADES</h3>
+              <p style="font-size: 12px; margin: 0;">${form.habilidades || ""}</p>
+            </div>
+          </div>
+          
+          <div style="width: 70%; padding: 40px;">
+            <h1 style="font-size: 28px; font-weight: bold; margin-bottom: 5px; color: #333;">
+              ${form.nombres || "NOMBRES"} <span style="font-weight: normal;">${form.apellidos || "APELLIDOS"}</span>
+            </h1>
+            <h2 style="font-size: 14px; color: #666; margin-bottom: 20px; font-weight: 600;">${form.profesion || "PROFESIÓN/CARGO"}</h2>
+            <p style="font-size: 12px; color: #333; line-height: 1.5; margin: 0;">${form.perfil || ""}</p>
+          </div>
+        </div>
+      `;
+    }
   };
 
   return (
@@ -404,8 +497,8 @@ Habilidades: ${form.habilidades || ""}`;
               customClass="mt-2 bg-blue-500 rounded hover:bg-blue-600 text-white font-semibold"
               onClick={async () => {
                 setActiveModal(null);
-                const content = buildCVContent(form);
-                downloadCV(content, 'cv_espanol.txt');
+                const html = createCVHTML(form);
+                await generatePDF(html, 'cv_espanol.pdf');
               }}
             >
               Descargar en Español
@@ -414,13 +507,13 @@ Habilidades: ${form.habilidades || ""}`;
               customClass="mt-2 bg-blue-500 rounded hover:bg-blue-600 text-white font-semibold"
               onClick={async () => {
                 setActiveModal(null);
-                const content = buildCVContent(form);
-                const translated = await translateCV(content, 'en');
+                const html = createCVHTML(form);
+                const translated = await translateCV(html, 'en');
                 if (!translated) {
                   alert("No se pudo traducir el CV. Intenta de nuevo.");
                   return;
                 }
-                downloadCV(translated, 'cv_english.txt');
+                await generatePDF(translated, 'cv_english.pdf');
               }}
             >
               Descargar en Inglés
