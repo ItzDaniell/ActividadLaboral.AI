@@ -1,11 +1,10 @@
 "use client";
-import { notFound } from "next/navigation";
+import { notFound, useParams } from "next/navigation";
 import React, { useState } from "react";
 import "../../../globals.css";
 import Button from "@/components/Button";
 import { Download, Languages, LayoutPanelLeft } from "lucide-react";
 import Modal from "@/components/Modal";
-import { useParams } from "next/navigation";
 
 export default function CvEditor() {
   const params = useParams();
@@ -13,6 +12,7 @@ export default function CvEditor() {
   const [activeModal, setActiveModal] = useState<
     null | "layout" | "language" | "download"
   >(null);
+  const [loading, setLoading] = useState(false);
   const [lang, setLang] = useState<"es" | "en">("es");
   const [activeLayout, setActiveLayout] = useState("harvard");
   const [selectedLayout, setSelectedLayout] = useState(activeLayout);
@@ -84,6 +84,7 @@ export default function CvEditor() {
 
   const handleToggle = async () => {
     if (lang === "es") {
+      setLoading(true);
       try {
         const content = buildCVContent(form);
         const translated = await translateCV(content, "en");
@@ -94,6 +95,8 @@ export default function CvEditor() {
         setLang("en");
       } catch (e) {
         alert("No se pudo traducir. Intenta de nuevo.");
+      } finally {
+        setLoading(false);
       }
     } else {
       setLang("es");
@@ -295,6 +298,7 @@ export default function CvEditor() {
         />
       </aside>
 
+      {/* Vista previa del CV */}
       {activeLayout === "harvard" ? (
         <main className="flex-1 flex flex-col items-center justify-center bg-gray-300 h-screen">
           <div className="bg-white shadow-lg rounded-lg p-10 w-[700px] min-h-[80vh]">
@@ -387,15 +391,13 @@ export default function CvEditor() {
                 </span>
               </h1>
               <h2 className="text-sm font-semibold text-gray-700 mb-2">
-                {form.profesion || "PROFESIÓN/CARGO"}
+                {lang === "en" ? translatedFields?.profesion || "PROFESSION" : form.profesion || "PROFESIÓN"}
               </h2>
               <div className="text-xs text-gray-800">{lang === "en" ? translatedFields?.perfil || "" : form.perfil || ""}</div>
             </section>
           </div>
         </main>
       )}
-
-      {/* Vista previa del CV */}
 
       <aside className="w-1/12 p-4 bg-white flex flex-col gap-4 text-center">
         {/* Herramientas o funciones extra */}
@@ -413,7 +415,8 @@ export default function CvEditor() {
         </div>
         <div className="flex flex-col items-center gap-1">
           <Button
-            customClass="bg-blue-100 py-4 px-4 rounded-full hover:bg-blue-200"
+            disabled={loading}
+            customClass={`bg-blue-100 py-4 px-4 rounded-full hover:bg-blue-200 ${loading ? "opacity-50" : ""}`}
             onClick={handleToggle}
           >
             <Languages className="w-6 h-6 text-blue-600" />
