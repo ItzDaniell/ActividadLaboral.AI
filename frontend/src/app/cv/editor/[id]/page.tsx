@@ -7,6 +7,9 @@ import { Download, Languages, LayoutPanelLeft } from "lucide-react";
 import Modal from "@/components/Modal";
 import { useParams } from "next/navigation";
 import { generatePDF, createHarvardTemplate, createSidebarTemplate } from '@/utils/pdfGenerator';
+import { PDFDownloadLink } from '@react-pdf/renderer';
+import { CVPdf } from '@/components/CVPdf';
+import type { FormFields } from '@/components/CVPdf';
 
 export default function CvEditor() {
   const params = useParams();
@@ -16,13 +19,15 @@ export default function CvEditor() {
   >(null);
   const [activeLayout, setActiveLayout] = useState("harvard");
   const [selectedLayout, setSelectedLayout] = useState(activeLayout);
+  const [translatedForm, setTranslatedForm] = useState<FormFields | null>(null);
+  const [loadingEnglish, setLoadingEnglish] = useState(false);
 
   if (!id || isNaN(Number(id))) {
     notFound();
   }
 
   // Estado para los campos del formulario
-  const [form, setForm] = useState({
+  const [form, setForm] = useState<FormFields>({
     nombres: "",
     apellidos: "",
     profesion: "",
@@ -183,6 +188,27 @@ Habilidades: ${form.habilidades || ""}`;
         </div>
       `;
     }
+  };
+
+  // Traduce todos los campos del form para el PDF en inglés
+  const handleTranslateForm = async () => {
+    setLoadingEnglish(true);
+    const translateField = async (text: string): Promise<string> => {
+      if (!text) return "";
+      const res = await fetch('http://localhost:3001/api/translate-cv', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ text, to: 'en' }),
+      });
+      const data = await res.json();
+      return data.translation || "";
+    };
+    const newForm: FormFields = { ...form };
+    for (const key of Object.keys(form) as (keyof FormFields)[]) {
+      newForm[key] = await translateField(form[key]);
+    }
+    setTranslatedForm(newForm);
+    setLoadingEnglish(false);
   };
 
   return (
@@ -493,31 +519,33 @@ Habilidades: ${form.habilidades || ""}`;
           title="Seleccione su descarga"
         >
           <div className="flex w-full p-4 gap-4 justify-evenly">
-            <Button
-              customClass="mt-2 bg-blue-500 rounded hover:bg-blue-600 text-white font-semibold"
-              onClick={async () => {
-                setActiveModal(null);
-                const html = createCVHTML(form);
-                await generatePDF(html, 'cv_espanol.pdf');
-              }}
+            {/* Botón para español */}
+            <PDFDownloadLink
+              document={<CVPdf form={form} />}
+              fileName="cv_espanol.pdf"
+              className="mt-2 bg-blue-500 rounded hover:bg-blue-600 text-white font-semibold px-4 py-2"
             >
-              Descargar en Español
-            </Button>
-            <Button
-              customClass="mt-2 bg-blue-500 rounded hover:bg-blue-600 text-white font-semibold"
-              onClick={async () => {
-                setActiveModal(null);
-                const html = createCVHTML(form);
-                const translated = await translateCV(html, 'en');
-                if (!translated) {
-                  alert("No se pudo traducir el CV. Intenta de nuevo.");
-                  return;
-                }
-                await generatePDF(translated, 'cv_english.pdf');
-              }}
-            >
-              Descargar en Inglés
-            </Button>
+              {({ loading }) => loading ? 'Generando PDF...' : 'Descargar en Español'}
+            </PDFDownloadLink>
+
+            {/* Botón para inglés */}
+            {translatedForm ? (
+              <PDFDownloadLink
+                document={<CVPdf form={translatedForm} />}
+                fileName="cv_english.pdf"
+                className="mt-2 bg-blue-500 rounded hover:bg-blue-600 text-white font-semibold px-4 py-2"
+              >
+                {({ loading }) => loading ? 'Generando PDF...' : 'Descargar en Inglés'}
+              </PDFDownloadLink>
+            ) : (
+              <button
+                className="mt-2 bg-blue-500 rounded hover:bg-blue-600 text-white font-semibold px-4 py-2"
+                onClick={handleTranslateForm}
+                disabled={loadingEnglish}
+              >
+                {loadingEnglish ? "Traduciendo..." : "Traducir y Descargar en Inglés"}
+              </button>
+            )}
           </div>
         </Modal>
       )}
