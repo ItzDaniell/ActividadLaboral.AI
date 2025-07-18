@@ -1,4 +1,5 @@
 @import "tailwindcss";
+@import 'react-notifications/lib/notifications.css';
 
 body {
   background: var(--background);
