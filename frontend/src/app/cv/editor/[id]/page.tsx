@@ -13,13 +13,93 @@ export default function CvEditor() {
   const [activeModal, setActiveModal] = useState<
     null | "layout" | "language" | "download"
   >(null);
+  const [lang, setLang] = useState<"es" | "en">("es");
   const [activeLayout, setActiveLayout] = useState("harvard");
   const [selectedLayout, setSelectedLayout] = useState(activeLayout);
+  const [translatedFields, setTranslatedFields] = useState<FormFields | null>(null);
 
   if (!id || isNaN(Number(id))) {
     notFound();
   }
 
+  // Parser para extraer los campos del string traducido
+  const parseCVContent = (content: string): FormFields => {
+    const lines = content.split(/\r?\n/);
+    const fields: any = {};
+    lines.forEach(line => {
+      const [key, ...rest] = line.split(":");
+      if (!key || rest.length === 0) return;
+      const value = rest.join(":").trim();
+      switch (key.trim().toLowerCase()) {
+        case "nombres":
+        case "names":
+          fields.nombres = value; break;
+        case "apellidos":
+        case "surname":
+          fields.apellidos = value; break;
+        case "profesión":
+        case "profesion":
+        case "profession":
+          fields.profesion = value; break;
+        case "perfil":
+        case "profile":
+          fields.perfil = value; break;
+        case "correo":
+        case "mail":
+          fields.correo = value; break;
+        case "linkedin":
+          fields.linkedin = value; break;
+        case "web":
+          fields.web = value; break;
+        case "lugar":
+        case "place":
+          fields.lugar = value; break;
+        case "celular":
+        case "cellular":
+          fields.celular = value; break;
+        case "educación":
+        case "educacion":
+        case "education":
+          fields.educacion = value; break;
+        case "habilidades":
+        case "skills":
+          fields.habilidades = value; break;
+        default: break;
+      }
+    });
+    return {
+      nombres: fields.nombres || "",
+      apellidos: fields.apellidos || "",
+      profesion: fields.profesion || "",
+      perfil: fields.perfil || "",
+      correo: fields.correo || "",
+      linkedin: fields.linkedin || "",
+      web: fields.web || "",
+      lugar: fields.lugar || "",
+      celular: fields.celular || "",
+      educacion: fields.educacion || "",
+      habilidades: fields.habilidades || "",
+    };
+  };
+
+  const handleToggle = async () => {
+    if (lang === "es") {
+      try {
+        const content = buildCVContent(form);
+        const translated = await translateCV(content, "en");
+        console.log('CV traducido:', translated);
+        const parsed = parseCVContent(translated);
+        console.log('CV parseado:', parsed);
+        setTranslatedFields(parsed);
+        setLang("en");
+      } catch (e) {
+        alert("No se pudo traducir. Intenta de nuevo.");
+      }
+    } else {
+      setLang("es");
+      setTranslatedFields(null);
+    }
+  };
   // Estado para los campos del formulario
   const [form, setForm] = useState({
     nombres: "",
@@ -43,8 +123,8 @@ export default function CvEditor() {
 
   // Función para descargar el CV como archivo de texto (puedes cambiar a PDF luego)
   const downloadCV = (content: string, filename: string) => {
-    const blob = new Blob([content], { type: 'text/plain' });
-    const link = document.createElement('a');
+    const blob = new Blob([content], { type: "text/plain" });
+    const link = document.createElement("a");
     link.href = URL.createObjectURL(blob);
     link.download = filename;
     document.body.appendChild(link);
@@ -70,27 +150,43 @@ export default function CvEditor() {
   // Función para armar el contenido del CV evitando undefined
   const buildCVContent = (form: FormFields) =>
     `Nombres: ${form.nombres || ""}
-Apellidos: ${form.apellidos || ""}
-Profesión: ${form.profesion || ""}
-Perfil: ${form.perfil || ""}
-Correo: ${form.correo || ""}
-LinkedIn: ${form.linkedin || ""}
-Web: ${form.web || ""}
-Lugar: ${form.lugar || ""}
-Celular: ${form.celular || ""}
-Educación: ${form.educacion || ""}
-Habilidades: ${form.habilidades || ""}`;
+    Apellidos: ${form.apellidos || ""}
+    Profesión: ${form.profesion || ""}
+    Perfil: ${form.perfil || ""}
+    Correo: ${form.correo || ""}
+    LinkedIn: ${form.linkedin || ""}
+    Web: ${form.web || ""}
+    Lugar: ${form.lugar || ""}
+    Celular: ${form.celular || ""}
+    Educación: ${form.educacion || ""}
+    Habilidades: ${form.habilidades || ""}`;
 
   // Función para traducir el CV usando el backend
   const translateCV = async (text: string, to: string) => {
-    const response = await fetch('http://localhost:3001/api/translate-cv', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+    const response = await fetch("http://localhost:3001/api/translate-cv", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ text, to }),
     });
     const data = await response.json();
     return data.translation;
   };
+
+  const translations = {
+    es: {
+      perfil: "PERFIL",
+      educacion: "EDUCACIÓN",
+      habilidades: "HABILIDADES",
+      contacto: "CONTACTO"
+    },
+    en: {
+      perfil: "PROFILE",
+      educacion: "EDUCATION",
+      habilidades: "SKILLS",
+      contacto:"CONTACT"
+    },
+  };
+
 
   return (
     <div className="flex h-screen bg-gray-100">
@@ -149,35 +245,35 @@ Habilidades: ${form.habilidades || ""}`;
             className="w-full border rounded px-3 py-2"
             placeholder="Correo electrónico"
             name="correo"
-            value={form.correo}
+            value={lang === "en" ? translatedFields?.correo || form.correo : form.correo}
             onChange={handleChange}
           />
           <input
             className="w-full border rounded px-3 py-2"
             placeholder="LinkedIn"
             name="linkedin"
-            value={form.linkedin}
+            value={lang === "en" ? translatedFields?.linkedin || form.linkedin : form.linkedin}
             onChange={handleChange}
           />
           <input
             className="w-full border rounded px-3 py-2"
             placeholder="Página Web"
             name="web"
-            value={form.web}
+            value={lang === "en" ? translatedFields?.web || form.web : form.web}
             onChange={handleChange}
           />
           <input
             className="w-full border rounded px-3 py-2"
             placeholder="Lugar"
             name="lugar"
-            value={form.lugar}
+            value={lang === "en" ? translatedFields?.lugar || form.lugar : form.lugar}
             onChange={handleChange}
           />
           <input
             className="w-full border rounded px-3 py-2"
             placeholder="Celular"
             name="celular"
-            value={form.celular}
+            value={lang === "en" ? translatedFields?.celular || form.celular : form.celular}
             onChange={handleChange}
           />
         </div>
@@ -186,7 +282,7 @@ Habilidades: ${form.habilidades || ""}`;
           className="w-full border rounded px-3 py-2"
           placeholder="Ej: Universidad, carrera, años..."
           name="educacion"
-          value={form.educacion}
+          value={lang === "en" ? translatedFields?.educacion || form.educacion : form.educacion}
           onChange={handleChange}
         />
         <h2 className="text-lg font-semibold mt-8 mb-4">Habilidades</h2>
@@ -194,7 +290,7 @@ Habilidades: ${form.habilidades || ""}`;
           className="w-full border rounded px-3 py-2"
           placeholder="Ej: React, Figma, Comunicación..."
           name="habilidades"
-          value={form.habilidades}
+          value={lang === "en" ? translatedFields?.habilidades || form.habilidades : form.habilidades}
           onChange={handleChange}
         />
       </aside>
@@ -203,49 +299,48 @@ Habilidades: ${form.habilidades || ""}`;
         <main className="flex-1 flex flex-col items-center justify-center bg-gray-300 h-screen">
           <div className="bg-white shadow-lg rounded-lg p-10 w-[700px] min-h-[80vh]">
             <h1 className="text-xl font-bold text-center mb-1">
-              {form.nombres || "Nombres"} {form.apellidos || "Apellidos"}
+              {lang === "en" ? translatedFields?.nombres || "Nombres" : form.nombres || "Nombres"} {lang === "en" ? translatedFields?.apellidos || "Apellidos" : form.apellidos || "Apellidos"}
             </h1>
             <h2 className="text-sm font-semibold text-center text-gray-500 mb-6">
-              {form.profesion || "PROFESIÓN"}
+              {lang === "en" ? translatedFields?.profesion || "PROFESIÓN" : form.profesion || "PROFESIÓN"}
             </h2>
             <div className="flex justify-between items-start mb-6">
               <div className="flex flex-col gap-1">
                 <p className="text-sm text-gray-600 underline underline-offset-1 text-xs">
-                  {form.correo || "correo@personal.com"}
+                  {lang === "en" ? translatedFields?.correo || "correo@personal.com" : form.correo || "correo@personal.com"}
                 </p>
                 <p className="text-sm text-gray-600 text-xs">
-                  {form.linkedin || "linkedin.com"}
+                  {lang === "en" ? translatedFields?.linkedin || "linkedin.com" : form.linkedin || "linkedin.com"}
                 </p>
               </div>
               <div className="text-right flex flex-col gap-1">
                 <p className="text-sm text-gray-600 underline underline-offset-1 text-xs">
-                  {form.web || "miweb.com"}
+                  {lang === "en" ? translatedFields?.web || "miweb.com" : form.web || "miweb.com"}
                 </p>
                 <p className="text-sm text-gray-600 text-xs">
-                  {form.celular || "+51 999 999 999"}
+                  {lang === "en" ? translatedFields?.celular || "+51 999 999 999" : form.celular || "+51 999 999 999"}
                 </p>
                 <p className="text-sm text-gray-600 text-xs">
-                  {form.lugar || "Lima, Perú"}
+                  {lang === "en" ? translatedFields?.lugar || "Lima, Perú" : form.lugar || "Lima, Perú"}
                 </p>
               </div>
             </div>
             <section className="mb-4">
-              <h3 className="font-semibold border-b pb-2">PERFIL</h3>
+              <h3 className="font-semibold border-b pb-2">{translations[lang].perfil}</h3>
               <p className="mt-2 text-gray-700 px-4 text-xs">
-                {form.perfil ||
-                  "Lorem ipsum dolor sit amet consectetur adipiscing elit convallis vivamus, turpis mus vel cubilia tincidunt sociis vulputate ullamcorper sodales class, et iaculis tristique leo morbi purus massa lacus. Dapibus tortor metus inceptos cum sociis fringilla purus, at aliquam molestie proin feugiat lectus consequat nec, pharetra hendrerit dictum condimentum ullamcorper nunc. Sagittis ridiculus sodales vestibulum posuere sem facilisis sollicitudin penatibus diam, netus eget parturient platea rutrum eu molestie fusce vulputate, ultrices mattis turpis blandit facilisi interdum arcu fringilla."}
+                {lang === "en" ? translatedFields?.perfil || "Profile..." : form.perfil || "Lorem ipsum dolor sit amet consectetur adipiscing elit convallis vivamus, turpis mus vel cubilia tincidunt sociis vulputate ullamcorper sodales class, et iaculis tristique leo morbi purus massa lacus. Dapibus tortor metus inceptos cum sociis fringilla purus, at aliquam molestie proin feugiat lectus consequat nec, pharetra hendrerit dictum condimentum ullamcorper nunc. Sagittis ridiculus sodales vestibulum posuere sem facilisis sollicitudin penatibus diam, netus eget parturient platea rutrum eu molestie fusce vulputate, ultrices mattis turpis blandit facilisi interdum arcu fringilla."}
               </p>
             </section>
             <section className="mb-4">
-              <h3 className="font-semibold border-b pb-2">EDUCACIÓN</h3>
+              <h3 className="font-semibold border-b pb-2">{translations[lang].educacion}</h3>
               <p className="mt-2 text-gray-700 px-4 text-xs">
-                {form.educacion || "Educación..."}
+                {lang === "en" ? translatedFields?.educacion || "Education..." : form.educacion || "Educación..."}
               </p>
             </section>
             <section>
-              <h3 className="font-semibold border-b pb-2">HABILIDADES</h3>
+              <h3 className="font-semibold border-b pb-2">{translations[lang].habilidades}</h3>
               <p className="mt-2 text-gray-700 px-4 text-xs">
-                {form.habilidades || "Habilidades..."}
+                {lang === "en" ? translatedFields?.habilidades || "Skills..." : form.habilidades || "Habilidades..."}
               </p>
             </section>
           </div>
@@ -258,7 +353,7 @@ Habilidades: ${form.habilidades || ""}`;
               {/* Contacto */}
               <div className="px-6 pb-6 border-b border-white/70">
                 <h3 className="font-bold text-sm mb-2 tracking-wide">
-                  CONTACTO
+                  {translations[lang].contacto}
                 </h3>
                 <ul className="text-xs space-y-1">
                   <li>- {form.lugar || "Lima, Perú"}</li>
@@ -271,16 +366,16 @@ Habilidades: ${form.habilidades || ""}`;
               {/* Educación */}
               <div className="px-6 py-6 border-b border-white/70">
                 <h3 className="font-bold text-sm mb-2 tracking-wide">
-                  EDUCACIÓN
+                  {translations[lang].educacion}
                 </h3>
-                <div className="text-xs">{form.educacion || ""}</div>
+                <div className="text-xs">{lang === "en" ? translatedFields?.educacion || "" : form.educacion || ""}</div>
               </div>
               {/* Habilidades */}
               <div className="px-6 py-6 border-b border-white/70 flex-1">
                 <h3 className="font-bold text-sm mb-2 tracking-wide">
-                  HABILIDADES
+                {translations[lang].habilidades}
                 </h3>
-                <div className="text-xs">{form.habilidades || ""}</div>
+                <div className="text-xs">{lang === "en" ? translatedFields?.habilidades || "" : form.habilidades || ""}</div>
               </div>
             </aside>
             {/* Contenido principal */}
@@ -294,7 +389,7 @@ Habilidades: ${form.habilidades || ""}`;
               <h2 className="text-sm font-semibold text-gray-700 mb-2">
                 {form.profesion || "PROFESIÓN/CARGO"}
               </h2>
-              <div className="text-xs text-gray-800">{form.perfil || ""}</div>
+              <div className="text-xs text-gray-800">{lang === "en" ? translatedFields?.perfil || "" : form.perfil || ""}</div>
             </section>
           </div>
         </main>
@@ -317,10 +412,17 @@ Habilidades: ${form.habilidades || ""}`;
           <p className="text-sm text-center">Diseño</p>
         </div>
         <div className="flex flex-col items-center gap-1">
-          <Button customClass="bg-blue-100 py-4 px-4 rounded-full hover:bg-blue-200">
+          <Button
+            customClass="bg-blue-100 py-4 px-4 rounded-full hover:bg-blue-200"
+            onClick={handleToggle}
+          >
             <Languages className="w-6 h-6 text-blue-600" />
           </Button>
-          <p className="text-sm text-center">Vista previa en Ing</p>
+          {lang === "es" ? (
+            <p className="text-sm text-center">Vista previa en Ingl</p>
+          ) : (
+            <p className="text-sm text-center">Vista previa en Esp</p>
+          )}
         </div>
         <div className="flex flex-col items-center gap-1">
           <Button
@@ -405,7 +507,7 @@ Habilidades: ${form.habilidades || ""}`;
               onClick={async () => {
                 setActiveModal(null);
                 const content = buildCVContent(form);
-                downloadCV(content, 'cv_espanol.txt');
+                downloadCV(content, "cv_espanol.txt");
               }}
             >
               Descargar en Español
@@ -415,12 +517,12 @@ Habilidades: ${form.habilidades || ""}`;
               onClick={async () => {
                 setActiveModal(null);
                 const content = buildCVContent(form);
-                const translated = await translateCV(content, 'en');
+                const translated = await translateCV(content, "en");
                 if (!translated) {
                   alert("No se pudo traducir el CV. Intenta de nuevo.");
                   return;
                 }
-                downloadCV(translated, 'cv_english.txt');
+                downloadCV(translated, "cv_english.txt");
               }}
             >
               Descargar en Inglés
