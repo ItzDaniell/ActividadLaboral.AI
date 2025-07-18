@@ -5,15 +5,11 @@ import "../../../globals.css";
 import Button from "@/components/Button";
 import { Download, Languages, LayoutPanelLeft } from "lucide-react";
 import Modal from "@/components/Modal";
+import { useParams } from "next/navigation";
 
-interface Props {
-  params: {
-    id: string;
-  };
-}
-
-export default function CvEditor({ params }: Props) {
-  const { id } = params;
+export default function CvEditor() {
+  const params = useParams();
+  const id = params?.id as string;
   const [activeModal, setActiveModal] = useState<
     null | "layout" | "language" | "download"
   >(null);
@@ -43,6 +39,57 @@ export default function CvEditor({ params }: Props) {
     e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>
   ) => {
     setForm({ ...form, [e.target.name]: e.target.value });
+  };
+
+  // Función para descargar el CV como archivo de texto (puedes cambiar a PDF luego)
+  const downloadCV = (content: string, filename: string) => {
+    const blob = new Blob([content], { type: 'text/plain' });
+    const link = document.createElement('a');
+    link.href = URL.createObjectURL(blob);
+    link.download = filename;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
+
+  // Definir el tipo de los campos del formulario
+  type FormFields = {
+    nombres: string;
+    apellidos: string;
+    profesion: string;
+    perfil: string;
+    correo: string;
+    linkedin: string;
+    web: string;
+    lugar: string;
+    celular: string;
+    educacion: string;
+    habilidades: string;
+  };
+
+  // Función para armar el contenido del CV evitando undefined
+  const buildCVContent = (form: FormFields) =>
+    `Nombres: ${form.nombres || ""}
+Apellidos: ${form.apellidos || ""}
+Profesión: ${form.profesion || ""}
+Perfil: ${form.perfil || ""}
+Correo: ${form.correo || ""}
+LinkedIn: ${form.linkedin || ""}
+Web: ${form.web || ""}
+Lugar: ${form.lugar || ""}
+Celular: ${form.celular || ""}
+Educación: ${form.educacion || ""}
+Habilidades: ${form.habilidades || ""}`;
+
+  // Función para traducir el CV usando el backend
+  const translateCV = async (text: string, to: string) => {
+    const response = await fetch('http://localhost:3001/api/translate-cv', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ text, to }),
+    });
+    const data = await response.json();
+    return data.translation;
   };
 
   return (
@@ -355,16 +402,25 @@ export default function CvEditor({ params }: Props) {
           <div className="flex w-full p-4 gap-4 justify-evenly">
             <Button
               customClass="mt-2 bg-blue-500 rounded hover:bg-blue-600 text-white font-semibold"
-              onClick={() => {
+              onClick={async () => {
                 setActiveModal(null);
+                const content = buildCVContent(form);
+                downloadCV(content, 'cv_espanol.txt');
               }}
             >
               Descargar en Español
             </Button>
             <Button
               customClass="mt-2 bg-blue-500 rounded hover:bg-blue-600 text-white font-semibold"
-              onClick={() => {
+              onClick={async () => {
                 setActiveModal(null);
+                const content = buildCVContent(form);
+                const translated = await translateCV(content, 'en');
+                if (!translated) {
+                  alert("No se pudo traducir el CV. Intenta de nuevo.");
+                  return;
+                }
+                downloadCV(translated, 'cv_english.txt');
               }}
             >
               Descargar en Inglés
